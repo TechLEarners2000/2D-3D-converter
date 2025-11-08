@@ -1,107 +1,99 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import Link from "next/link"
+import { Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Card } from "@/components/ui/card"
+import ImageUploader from "@/components/image-uploader"
+import ModelViewer from "@/components/model-viewer"
+import ProcessingStatus from "@/components/processing-status"
 
-const loginSchema = z.object({
-  username: z.string().min(1, "Username is required"),
-  password: z.string().min(1, "Password is required"),
-})
+export default function Home() {
+  const [image, setImage] = useState<string | null>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [modelReady, setModelReady] = useState(false)
+  const [processingStep, setProcessingStep] = useState<string>("")
 
-type LoginForm = z.infer<typeof loginSchema>
+  const handleImageUpload = (imageDataUrl: string) => {
+    setImage(imageDataUrl)
+    setModelReady(false)
+  }
 
-export default function LoginPage() {
-  const [error, setError] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
+  const convertTo3D = async () => {
+    if (!image) return
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
-  })
+    setIsProcessing(true)
+    setModelReady(false)
 
-  const onSubmit = async (data: LoginForm) => {
-    setIsLoading(true)
-    setError("")
+    // Simulate the processing steps that would happen on the backend
+    setProcessingStep("Analyzing image structure...")
+    await new Promise((resolve) => setTimeout(resolve, 1000))
 
-    try {
-      const response = await fetch("/api/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      })
+    setProcessingStep("Generating depth map...")
+    await new Promise((resolve) => setTimeout(resolve, 1500))
 
-      if (response.ok) {
-        router.push("/")
-      } else {
-        const errorData = await response.json()
-        setError(errorData.message || "Login failed")
-      }
-    } catch (err) {
-      setError("An error occurred. Please try again.")
-    } finally {
-      setIsLoading(false)
-    }
+    setProcessingStep("Running 3D reconstruction model...")
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+
+    setProcessingStep("Creating 3D mesh...")
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    setProcessingStep("Applying textures...")
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    setIsProcessing(false)
+    setModelReady(true)
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="auth-container">
-        <h2>Login to Your Account</h2>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="form-group">
-            <label htmlFor="username">Username</label>
-            <input
-              id="username"
-              type="text"
-              className="form-control"
-              placeholder="Enter your username"
-              {...register("username")}
-            />
-            {errors.username && (
-              <p className="text-sm text-red-600">{errors.username.message}</p>
+    <main className="flex min-h-screen flex-col items-center justify-center p-4 md:p-24 bg-gray-50">
+      <h1 className="text-3xl font-bold mb-8 text-center">2D to 3D Image Converter</h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-6xl">
+        <div className="flex flex-col gap-4">
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4">Upload 2D Image</h2>
+            <ImageUploader onImageUpload={handleImageUpload} />
+
+            {image && (
+              <div className="mt-4">
+                <h3 className="text-lg font-medium mb-2">Preview</h3>
+                <div className="relative rounded-md overflow-hidden border border-gray-200 aspect-square">
+                  <img
+                    src={image || "/placeholder.svg"}
+                    alt="Uploaded preview"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <Button className="w-full mt-4" onClick={convertTo3D} disabled={isProcessing}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Convert to 3D
+                </Button>
+              </div>
             )}
-          </div>
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              className="form-control"
-              placeholder="Enter your password"
-              {...register("password")}
-            />
-            {errors.password && (
-              <p className="text-sm text-red-600">{errors.password.message}</p>
+          </Card>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <Card className="p-6 h-full flex flex-col">
+            <h2 className="text-xl font-semibold mb-4">3D Model Output</h2>
+
+            {isProcessing ? (
+              <ProcessingStatus step={processingStep} />
+            ) : modelReady ? (
+              <div className="flex-1 min-h-[400px]">
+                <ModelViewer imageUrl={image} />
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center border border-dashed border-gray-300 rounded-md bg-gray-50 min-h-[400px]">
+                <p className="text-gray-500 text-center">
+                  {image ? "Click 'Convert to 3D' to generate model" : "Upload an image to get started"}
+                </p>
+              </div>
             )}
-          </div>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={isLoading}>
-            {isLoading ? "Logging in..." : "Login"}
-          </button>
-        </form>
-        <p style={{ textAlign: "center", marginTop: "1rem" }}>
-          Don't have an account? <Link href="/register" style={{ color: "var(--secondary)" }}>Register here</Link>
-        </p>
+          </Card>
+        </div>
       </div>
-    </div>
+    </main>
   )
 }
